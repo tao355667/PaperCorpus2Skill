@@ -177,10 +177,6 @@ outputs/
 - 想把论文语料变成 Claude / ChatGPT / Codex / Cursor 指令资产的人
 - 想用 DeepSeek、OpenAI-compatible API、Anthropic 或 Ollama 处理本地语料的人
 
-## 关键词
-
-`论文语料` `SCI论文写作` `学术写作助手` `论文写作风格提取` `PDF转Skill` `Claude Skill` `ChatGPT Project Instructions` `Codex AGENTS.md` `Cursor Rules` `academic writing` `paper corpus` `AI skill generator` `PDF to skill` `section-aware writing style extraction`
-
 ## License
 
 MIT License. See [LICENSE](LICENSE).
@@ -222,10 +218,6 @@ corpus/
   topic-b/
     paper1.pdf
 ```
-
-## Keywords
-
-`academic writing` `SCI paper writing` `paper corpus` `PDF to skill` `AI skill generator` `Claude Skill` `ChatGPT Project Instructions` `Codex AGENTS.md` `Cursor Rules` `research writing assistant` `section-aware writing style extraction`
 
 ## License
 
