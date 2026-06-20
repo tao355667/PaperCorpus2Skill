@@ -31,19 +31,63 @@ PaperCorpus2Skill 专门解决这个问题：
 
 ## 快速开始
 
-配置 API Key：
+**第 1 步**：把 PDF 论文放到 `corpus/` 文件夹，按主题分目录：
+
+```text
+corpus/
+  topic-a/
+    paper1.pdf
+    paper2.pdf
+  topic-b/
+    paper1.pdf
+    paper2.md
+```
+
+支持 PDF 和 Markdown 格式。
+
+**第 2 步**：配置 API Key：
 
 ```bash
 cp .env.example .env
+# 编辑 .env，填入你的 API Key
 ```
 
-配置模型和导出参数：
+`.env` 内容示例：
+
+```bash
+DEEPSEEK_API_KEY=sk-...
+```
+
+**第 3 步**：配置模型和导出参数：
 
 ```bash
 cp papercorpus2skill.yaml.example papercorpus2skill.yaml
+# 按需编辑 papercorpus2skill.yaml
 ```
 
-## 配置说明
+**第 4 步**：预览语料结构，确认没问题：
+
+```bash
+uv run papercorpus2skill batch-preview ./corpus
+```
+
+**第 5 步**：生成 Skill Pack：
+
+```bash
+uv run papercorpus2skill batch ./corpus
+```
+
+默认处理策略：
+
+```text
+PDF -> Markdown cache
+每 5 篇论文总结一次
+每 5 个 summary 再合并一次
+持续合并章节表达和篇章 concept threads
+断点续跑：batch summary / merge summary / working skill state 会缓存到本地
+```
+
+### 配置说明
 
 `papercorpus2skill.yaml` 是本地配置文件，不建议提交到 GitHub。仓库只保留 `papercorpus2skill.yaml.example` 作为模板。API Key 请写到 `.env`，不要直接写进 YAML。
 
@@ -95,12 +139,6 @@ processing:
 | `processing.papers_per_batch` | 每次交给 LLM 处理的论文数量。论文越长或模型上下文越小，这个值应越小。 |
 | `processing.summaries_per_merge` | 每次合并的中间 summary 数量，用于控制大语料的分层合并过程。 |
 
-`.env` 示例：
-
-```bash
-DEEPSEEK_API_KEY=sk-...
-```
-
 命令行参数会覆盖 YAML 中的部分配置。常用覆盖项：
 
 ```bash
@@ -112,40 +150,6 @@ uv run papercorpus2skill batch ./corpus \
   --api-key-env DEEPSEEK_API_KEY \
   --export universal,codex \
   --no-zip
-```
-
-整理论文：
-
-```text
-corpus/
-  topic-a/
-    paper1.pdf
-    paper2.pdf
-  topic-b/
-    paper1.pdf
-    paper2.md
-```
-
-预览：
-
-```bash
-uv run papercorpus2skill batch-preview ./corpus
-```
-
-生成：
-
-```bash
-uv run papercorpus2skill batch ./corpus
-```
-
-默认处理策略：
-
-```text
-PDF -> Markdown cache
-每 5 篇论文总结一次
-每 5 个 summary 再合并一次
-持续合并章节表达和篇章 concept threads
-断点续跑：batch summary / merge summary / working skill state 会缓存到本地
 ```
 
 ## 输出什么
@@ -201,14 +205,7 @@ PaperCorpus2Skill:
 
 ## Quick Start
 
-```bash
-cp .env.example .env
-cp papercorpus2skill.yaml.example papercorpus2skill.yaml
-uv run papercorpus2skill batch-preview ./corpus
-uv run papercorpus2skill batch ./corpus
-```
-
-Recommended layout:
+**Step 1**: Put your PDF papers into a `corpus/` folder, organized by topic:
 
 ```text
 corpus/
@@ -217,6 +214,40 @@ corpus/
     paper2.md
   topic-b/
     paper1.pdf
+```
+
+Supports PDF and Markdown formats.
+
+**Step 2**: Configure your API key:
+
+```bash
+cp .env.example .env
+# Edit .env with your API key
+```
+
+Example `.env`:
+
+```bash
+DEEPSEEK_API_KEY=sk-...
+```
+
+**Step 3**: Configure model and export settings:
+
+```bash
+cp papercorpus2skill.yaml.example papercorpus2skill.yaml
+# Edit papercorpus2skill.yaml as needed
+```
+
+**Step 4**: Preview the corpus to make sure everything looks right:
+
+```bash
+uv run papercorpus2skill batch-preview ./corpus
+```
+
+**Step 5**: Generate the Skill Pack:
+
+```bash
+uv run papercorpus2skill batch ./corpus
 ```
 
 ## License
