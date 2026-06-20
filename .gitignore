@@ -5,5 +5,16 @@
 __pycache__/
 *.py[cod]
 outputs/
+docs/superpowers/
 *.zip
 .env
+papercorpus2skill.yaml
+corpus/
+tmp/
+temp/
+dist/
+build/
+*.egg-info/
+.DS_Store
+.idea/
+.vscode/
