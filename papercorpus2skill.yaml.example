@@ -1,0 +1,88 @@
+# PaperCorpus2Skill configuration template.
+#
+# Usage:
+#   1. Copy this file to papercorpus2skill.yaml.
+#   2. Put API keys in .env, not in this file.
+#   3. Run short commands such as:
+#        uv run papercorpus2skill batch ./corpus
+#
+# Command-line flags can still override values in this file.
+
+app:
+  # Directory where generated Skill Packs are written.
+  # Relative paths are resolved from the current working directory.
+  output_dir: ./outputs
+
+  # Directory for local intermediate files.
+  # Converted Markdown files are cached here so large corpora can be resumed.
+  cache_dir: ./.papercorpus2skill/cache
+
+llm:
+  # Model provider.
+  # Options:
+  #   openai_compatible  OpenAI-style /chat/completions API.
+  #                      Works with OpenAI, DeepSeek, Qwen, GLM, Moonshot,
+  #                      SiliconFlow, OpenRouter, LM Studio, vLLM, etc.
+  #   anthropic          Anthropic Messages API.
+  #   ollama             Local Ollama API.
+  provider: openai_compatible
+
+  # Provider base URL.
+  # DeepSeek example: https://api.deepseek.com/v1
+  # OpenAI example:   https://api.openai.com/v1
+  # Ollama example:   http://localhost:11434
+  base_url: https://api.deepseek.com/v1
+
+  # Name of the environment variable that stores your API key.
+  # Define it in .env, for example:
+  #   DEEPSEEK_API_KEY=sk-...
+  # For Ollama, leave this empty or set it to null.
+  api_key_env: DEEPSEEK_API_KEY
+
+  # Model name passed to the provider.
+  # DeepSeek example: deepseek-chat
+  # OpenAI example:   gpt-4.1-mini
+  # Ollama example:   qwen2.5:7b
+  model: deepseek-chat
+
+  # Sampling temperature. Lower values are more stable for style extraction.
+  temperature: 0.2
+
+generation:
+  # Skill type to generate.
+  # Current recommended value:
+  #   academic_writing
+  skill_type: academic_writing
+
+  # Whether to create a .zip next to each generated Skill Pack folder.
+  create_zip: true
+
+  # Export targets.
+  # Options:
+  #   universal  Complete Markdown Skill Pack.
+  #   claude     Claude-style SKILL.md.
+  #   chatgpt    ChatGPT Project Instructions.
+  #   codex      AGENTS.md.
+  #   cursor     Cursor rule file.
+  target_tools:
+    - universal
+    - claude
+    - chatgpt
+    - codex
+    - cursor
+
+processing:
+  # PDF conversion backend.
+  # Options:
+  #   pymupdf      Built-in default, fast and lightweight.
+  #   pymupdf4llm  Optional backend, often better Markdown for LLM use.
+  #   docling      Optional backend, stronger structured document conversion.
+  pdf_backend: pymupdf
+
+  # Number of papers read by the LLM in one batch.
+  # For 1M-context models, 5 SCI papers per batch is a stable default.
+  papers_per_batch: 5
+
+  # Number of intermediate summaries merged in one merge step.
+  # Example: 100 papers -> 20 batch summaries -> 4 merged summaries -> final state.
+  summaries_per_merge: 5

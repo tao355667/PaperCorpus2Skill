@@ -1,0 +1,54 @@
+# PaperCorpus2Skill local configuration.
+#
+# API keys belong in .env. This file only stores non-secret options.
+# After editing this file, normal commands can stay short:
+#   uv run papercorpus2skill batch ./corpus
+
+app:
+  # Directory where generated Skill Packs are written.
+  output_dir: ./outputs
+
+  # Local cache for converted Markdown and intermediate files.
+  cache_dir: ./.papercorpus2skill/cache
+
+llm:
+  # Options: openai_compatible, anthropic, ollama.
+  provider: openai_compatible
+
+  # DeepSeek: https://api.deepseek.com/v1
+  # Ollama:   http://localhost:11434
+  base_url: https://api.deepseek.com/v1
+
+  # Environment variable name loaded from .env.
+  api_key_env: DEEPSEEK_API_KEY
+
+  # Model name.
+  model: deepseek-chat
+
+  # Lower is more stable for extracting writing style.
+  temperature: 0.2
+
+generation:
+  # Current supported main type.
+  skill_type: academic_writing
+
+  # Generate zip archives next to output folders.
+  create_zip: true
+
+  # Options: universal, claude, chatgpt, codex, cursor.
+  target_tools:
+    - universal
+    - claude
+    - chatgpt
+    - codex
+    - cursor
+
+processing:
+  # Options: pymupdf, pymupdf4llm, docling.
+  pdf_backend: pymupdf
+
+  # Read this many papers per LLM batch.
+  papers_per_batch: 5
+
+  # Merge this many intermediate summaries per merge batch.
+  summaries_per_merge: 5

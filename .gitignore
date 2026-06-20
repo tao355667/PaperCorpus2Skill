@@ -1,0 +1,9 @@
+.venv/
+.uv-cache/
+.papercorpus2skill/
+.pytest_cache/
+__pycache__/
+*.py[cod]
+outputs/
+*.zip
+.env
