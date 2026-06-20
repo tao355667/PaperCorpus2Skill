@@ -43,6 +43,77 @@ cp .env.example .env
 cp papercorpus2skill.yaml.example papercorpus2skill.yaml
 ```
 
+## 配置说明
+
+`papercorpus2skill.yaml` 是本地配置文件，不建议提交到 GitHub。仓库只保留 `papercorpus2skill.yaml.example` 作为模板。API Key 请写到 `.env`，不要直接写进 YAML。
+
+最小配置示例：
+
+```yaml
+app:
+  output_dir: ./outputs
+  cache_dir: ./.papercorpus2skill/cache
+
+llm:
+  provider: openai_compatible
+  base_url: https://api.deepseek.com
+  api_key_env: DEEPSEEK_API_KEY
+  model: deepseek-v4-pro[1m]
+  temperature: 0.2
+
+generation:
+  skill_type: academic_writing
+  create_zip: true
+  target_tools:
+    - universal
+    - claude
+    - chatgpt
+    - codex
+    - cursor
+
+processing:
+  pdf_backend: pymupdf
+  papers_per_batch: 5
+  summaries_per_merge: 5
+```
+
+字段含义：
+
+| 字段 | 说明 |
+| --- | --- |
+| `app.output_dir` | 生成的 Skill Pack 输出目录。 |
+| `app.cache_dir` | 本地中间缓存目录，用于 PDF 转 Markdown 缓存和断点续跑。 |
+| `llm.provider` | 模型服务商，支持 `openai_compatible` / `openai`、`anthropic`、`ollama`。 |
+| `llm.base_url` | 模型 API 地址，例如 DeepSeek: `https://api.deepseek.com`，OpenAI: `https://api.openai.com/v1`，Ollama: `http://localhost:11434`。 |
+| `llm.api_key_env` | API Key 所在的环境变量名，例如 `DEEPSEEK_API_KEY`。Ollama 可设为空或 `null`。 |
+| `llm.model` | 模型名称，例如 `deepseek-v4-pro[1m]`、`gpt-4.1-mini`、`qwen2.5:7b`。 |
+| `llm.temperature` | 采样温度。学术写作风格抽取建议使用较低值，例如 `0.2`。 |
+| `generation.skill_type` | 生成的 Skill 类型。目前推荐使用 `academic_writing`。 |
+| `generation.create_zip` | 是否在生成目录旁边同时创建 `.zip` 包。 |
+| `generation.target_tools` | 导出目标，支持 `universal`、`claude`、`chatgpt`、`codex`、`cursor`。 |
+| `processing.pdf_backend` | PDF 转 Markdown 后端，支持 `pymupdf`；可选后端包括 `pymupdf4llm`、`docling`。 |
+| `processing.papers_per_batch` | 每次交给 LLM 处理的论文数量。论文越长或模型上下文越小，这个值应越小。 |
+| `processing.summaries_per_merge` | 每次合并的中间 summary 数量，用于控制大语料的分层合并过程。 |
+
+`.env` 示例：
+
+```bash
+DEEPSEEK_API_KEY=sk-...
+```
+
+命令行参数会覆盖 YAML 中的部分配置。常用覆盖项：
+
+```bash
+uv run papercorpus2skill batch ./corpus \
+  --output-dir ./outputs \
+  --provider openai_compatible \
+  --base-url https://api.deepseek.com \
+  --model deepseek-v4-pro[1m] \
+  --api-key-env DEEPSEEK_API_KEY \
+  --export universal,codex \
+  --no-zip
+```
+
 整理论文：
 
 ```text
