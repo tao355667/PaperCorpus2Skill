@@ -10,8 +10,8 @@ class BatchFakeProvider(BaseLLMProvider):
         prompt = messages[-1]["content"]
         if "Corpus category: webdev" in prompt:
             domain = "web development education"
-        elif "Corpus category: rppg" in prompt:
-            domain = "remote photoplethysmography"
+        elif "Corpus category: nlp" in prompt:
+            domain = "natural language processing"
         else:
             domain = "paper corpus"
         return json.dumps(
@@ -31,15 +31,15 @@ class BatchFakeProvider(BaseLLMProvider):
 def test_discovers_each_top_level_folder_as_a_corpus_group(tmp_path: Path) -> None:
     (tmp_path / "webdev").mkdir()
     (tmp_path / "webdev" / "paper.md").write_text("# WebDev\n\nBody", encoding="utf-8")
-    (tmp_path / "rppg").mkdir()
-    (tmp_path / "rppg" / "paper.md").write_text("# rPPG\n\nBody", encoding="utf-8")
+    (tmp_path / "nlp").mkdir()
+    (tmp_path / "nlp" / "paper.md").write_text("# NLP\n\nBody", encoding="utf-8")
     (tmp_path / "empty").mkdir()
     (tmp_path / "root-paper.md").write_text("# Ignored by batch grouping\n", encoding="utf-8")
 
     groups = discover_corpus_groups(tmp_path)
 
     assert [(group.name, group.path.name, group.source_count) for group in groups] == [
-        ("rppg", "rppg", 1),
+        ("nlp", "nlp", 1),
         ("webdev", "webdev", 1),
     ]
 
@@ -48,8 +48,8 @@ def test_batch_agent_generates_one_skill_pack_per_group(tmp_path: Path) -> None:
     corpus_root = tmp_path / "corpus"
     (corpus_root / "webdev").mkdir(parents=True)
     (corpus_root / "webdev" / "paper.md").write_text("# WebDev\n\nBody", encoding="utf-8")
-    (corpus_root / "rppg").mkdir()
-    (corpus_root / "rppg" / "paper.md").write_text("# rPPG\n\nBody", encoding="utf-8")
+    (corpus_root / "nlp").mkdir()
+    (corpus_root / "nlp" / "paper.md").write_text("# NLP\n\nBody", encoding="utf-8")
 
     result = BatchPaperCorpus2SkillAgent(provider=BatchFakeProvider()).generate_all(
         input_root=corpus_root,
@@ -59,10 +59,10 @@ def test_batch_agent_generates_one_skill_pack_per_group(tmp_path: Path) -> None:
         create_zip=False,
     )
 
-    assert [item.group.name for item in result.items] == ["rppg", "webdev"]
+    assert [item.group.name for item in result.items] == ["nlp", "webdev"]
     assert [item.pack.name for item in result.items] == [
-        "remote-photoplethysmography-academic-writing-skill",
+        "natural-language-processing-academic-writing-skill",
         "web-development-education-academic-writing-skill",
     ]
-    assert (tmp_path / "outputs" / "rppg" / "remote-photoplethysmography-academic-writing-skill").exists()
+    assert (tmp_path / "outputs" / "nlp" / "natural-language-processing-academic-writing-skill").exists()
     assert (tmp_path / "outputs" / "webdev" / "web-development-education-academic-writing-skill").exists()

@@ -47,10 +47,10 @@ cp papercorpus2skill.yaml.example papercorpus2skill.yaml
 
 ```text
 corpus/
-  rppg/
+  topic-a/
     paper1.pdf
     paper2.pdf
-  webdev/
+  topic-b/
     paper1.pdf
     paper2.md
 ```
@@ -81,7 +81,7 @@ PDF -> Markdown cache
 
 ```text
 outputs/
-  rppg-academic-writing-skill/
+  topic-a-academic-writing-skill/
     SKILL.md
     files/
       phrasebook.md

@@ -27,44 +27,44 @@ def test_skill_state_merges_section_expressions_with_counts() -> None:
 
 
 def test_skill_state_merges_concept_threads_across_sections() -> None:
-    state = SkillState(domain="remote photoplethysmography")
+    state = SkillState(domain="natural language processing")
 
     state.apply_summary(
         SummaryChunk(
-            domain="remote photoplethysmography",
+            domain="natural language processing",
             purpose="Help write papers.",
             section_expressions={},
             concept_threads=[
                 ConceptThread(
-                    concept="motion artifact suppression",
-                    aliases=["motion artifacts"],
+                    concept="retrieval augmentation",
+                    aliases=["retrieval-augmented generation"],
                     section_roles={
-                        "introduction": ["Frames motion artifacts as a key robustness challenge."],
-                        "method": ["Links suppression to temporal filtering modules."],
+                        "introduction": ["Frames missing knowledge as a key reliability challenge."],
+                        "method": ["Links retrieval augmentation to grounding modules."],
                     },
-                    writing_guidance=["Introduce the challenge before naming the module."],
+                    writing_guidance=["Introduce the knowledge gap before naming the module."],
                 )
             ],
         )
     )
     state.apply_summary(
         SummaryChunk(
-            domain="remote photoplethysmography",
+            domain="natural language processing",
             purpose="Help write papers.",
             section_expressions={},
             concept_threads=[
                 ConceptThread(
-                    concept="Motion Artifact Suppression",
-                    aliases=["motion-induced noise"],
+                    concept="Retrieval Augmentation",
+                    aliases=["external evidence retrieval"],
                     section_roles={"experiments": ["Validates the module through ablation studies."]},
-                    writing_guidance=["Connect ablation gains back to motion robustness."],
+                    writing_guidance=["Connect ablation gains back to grounded generation."],
                 )
             ],
         )
     )
 
     thread = state.concept_threads[0]
-    assert thread.concept == "motion artifact suppression"
-    assert thread.aliases == ["motion artifacts", "motion-induced noise"]
+    assert thread.concept == "retrieval augmentation"
+    assert thread.aliases == ["retrieval-augmented generation", "external evidence retrieval"]
     assert sorted(thread.section_roles) == ["experiments", "introduction", "method"]
     assert len(thread.writing_guidance) == 2
