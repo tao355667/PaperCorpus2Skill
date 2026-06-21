@@ -9,7 +9,7 @@ class CountingProvider(BaseLLMProvider):
     def __init__(self) -> None:
         self.calls = 0
 
-    def chat(self, messages: list[dict[str, str]], temperature: float = 0.2) -> str:
+    def chat(self, messages: list[dict[str, str]], temperature: float = 0.2, json_mode: bool = False) -> str:
         self.calls += 1
         return json.dumps(
             {

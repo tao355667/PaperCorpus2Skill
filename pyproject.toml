@@ -5,7 +5,7 @@ description = "Turn PDF and Markdown paper corpora into portable AI skill packs.
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
-dependencies = []
+dependencies = ["json-repair>=0.30"]
 
 [project.optional-dependencies]
 pdf = ["PyMuPDF>=1.24"]

@@ -5,6 +5,8 @@ import re
 from dataclasses import dataclass, field, replace
 from typing import Any
 
+from json_repair import loads as repair_loads
+
 from papercorpus2skill.llm import BaseLLMProvider
 from papercorpus2skill.parsers import ParsedDocument
 from papercorpus2skill.sectioning import build_section_corpus
@@ -67,11 +69,55 @@ def analyze_corpus(
             "content": _build_prompt(documents, skill_type, domain_hint),
         },
     ]
-    response = provider.chat(messages, temperature=temperature)
+    response = chat_for_json(provider, messages, temperature=temperature)
     guidance = guidance_from_json(response)
     if _same_label(guidance.domain, skill_type):
         return replace(guidance, domain=domain_hint or _infer_domain(documents))
     return guidance
+
+
+def chat_for_json(
+    provider: BaseLLMProvider,
+    messages: list[dict[str, str]],
+    temperature: float = 0.2,
+    max_retries: int = 2,
+) -> str:
+    """Call the LLM asking for JSON and return verified-raw text.
+
+    Uses native JSON mode when the provider supports it. If the response
+    cannot be parsed, feeds the broken output back to the model with a
+    repair instruction, up to ``max_retries`` times.
+    """
+    raw = provider.chat(messages, temperature=temperature, json_mode=True)
+    for _ in range(max_retries):
+        try:
+            _loads_json_object(raw)
+            return raw
+        except (json.JSONDecodeError, ValueError):
+            raw = _repair_with_llm(provider, messages, raw, temperature)
+    _loads_json_object(raw)
+    return raw
+
+
+def _repair_with_llm(
+    provider: BaseLLMProvider,
+    original: list[dict[str, str]],
+    broken: str,
+    temperature: float,
+) -> str:
+    repair_messages = original + [
+        {
+            "role": "user",
+            "content": (
+                "Your previous response was not valid JSON and could not be parsed. "
+                "Return ONLY the corrected JSON object, with no prose, no code fences, "
+                "double-quoted keys and string values, and no trailing commas. "
+                "Fix the following output:\n\n"
+                + broken
+            ),
+        }
+    ]
+    return provider.chat(repair_messages, temperature=temperature, json_mode=True)
 
 
 def guidance_from_json(raw: str) -> CorpusGuidance:
@@ -130,7 +176,13 @@ def _loads_json_object(raw: str) -> dict[str, Any]:
         match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", stripped, re.DOTALL)
         if match:
             stripped = match.group(1)
-    return json.loads(stripped)
+    try:
+        data = json.loads(stripped)
+    except json.JSONDecodeError:
+        data = repair_loads(stripped)
+    if not isinstance(data, dict):
+        raise ValueError("Expected a JSON object at the top level.")
+    return data
 
 
 def _string_list(value: Any) -> list[str]:

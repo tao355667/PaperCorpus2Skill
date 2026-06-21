@@ -11,7 +11,7 @@ class CapturingProvider(BaseLLMProvider):
     def __init__(self) -> None:
         self.prompt = ""
 
-    def chat(self, messages: list[dict[str, str]], temperature: float = 0.2) -> str:
+    def chat(self, messages: list[dict[str, str]], temperature: float = 0.2, json_mode: bool = False) -> str:
         self.prompt = messages[-1]["content"]
         return json.dumps(
             {

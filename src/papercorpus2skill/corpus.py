@@ -31,7 +31,11 @@ def discover_sources(input_path: Path, include_zotero: bool = False) -> list[Sou
         candidates = [path]
     elif path.is_dir():
         search_root = _zotero_storage_root(path) if include_zotero else path
-        candidates = [candidate for candidate in search_root.rglob("*") if candidate.is_file()]
+        candidates = [
+            candidate for candidate in search_root.rglob("*")
+            if candidate.is_file() and "markdown" not in (p.name for p in candidate.parents)
+            and candidate.parent.name != "markdown"
+        ]
     else:
         raise FileNotFoundError(f"Input path does not exist: {input_path}")
 

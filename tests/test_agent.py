@@ -6,7 +6,7 @@ from papercorpus2skill.llm import BaseLLMProvider
 
 
 class FakeProvider(BaseLLMProvider):
-    def chat(self, messages: list[dict[str, str]], temperature: float = 0.2) -> str:
+    def chat(self, messages: list[dict[str, str]], temperature: float = 0.2, json_mode: bool = False) -> str:
         assert messages
         return json.dumps(
             {
@@ -59,7 +59,7 @@ def test_agent_generates_skill_pack_from_markdown_folder(tmp_path: Path) -> None
 
 
 class GenericDomainProvider(BaseLLMProvider):
-    def chat(self, messages: list[dict[str, str]], temperature: float = 0.2) -> str:
+    def chat(self, messages: list[dict[str, str]], temperature: float = 0.2, json_mode: bool = False) -> str:
         return json.dumps(
             {
                 "domain": "academic_writing",

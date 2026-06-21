@@ -4,7 +4,7 @@ import json
 import re
 from pathlib import Path
 
-from papercorpus2skill.analyzers import guidance_from_json
+from papercorpus2skill.analyzers import chat_for_json, guidance_from_json
 from papercorpus2skill.llm import BaseLLMProvider
 from papercorpus2skill.parsers import ParsedDocument
 from papercorpus2skill.sectioning import build_section_corpus
@@ -29,7 +29,8 @@ def analyze_corpus_in_batches(
     total_batches = len(batches)
     for batch_index, batch in enumerate(batches):
         summary_path = cache / "summaries" / f"batch-{batch_index:03d}.json" if cache else None
-        if summary_path and summary_path.exists():
+        cached = summary_path and summary_path.exists()
+        if cached:
             print(f"  Batch {batch_index + 1}/{total_batches} (cached, {len(batch)} papers)")
         else:
             print(f"  Batch {batch_index + 1}/{total_batches}: Summarizing {len(batch)} papers...", flush=True)
@@ -37,7 +38,7 @@ def analyze_corpus_in_batches(
             summary_path,
             lambda batch=batch: _summarize_papers(batch, provider, skill_type, temperature, domain_hint),
         )
-        if not (summary_path and summary_path.exists()):
+        if not cached:
             print(f"    done.")
         state.apply_summary(summary)
         _save_working_state(cache, state)
@@ -51,13 +52,14 @@ def analyze_corpus_in_batches(
         merged: list[SummaryChunk] = []
         for group_index, group in enumerate(groups):
             summary_path = cache / "summaries" / f"merge-r{round_index:02d}-{group_index:03d}.json" if cache else None
-            if summary_path and summary_path.exists():
+            cached = summary_path and summary_path.exists()
+            if cached:
                 print(f"    Group {group_index + 1}/{len(groups)} (cached)")
             summary = _load_or_create_summary(
                 summary_path,
                 lambda group=group: _merge_summaries(group, provider, skill_type, temperature, domain_hint),
             )
-            if not (summary_path and summary_path.exists()):
+            if not cached:
                 print(f"    Group {group_index + 1}/{len(groups)} done.")
             state.apply_summary(summary)
             _save_working_state(cache, state)
@@ -79,7 +81,7 @@ def _summarize_papers(
     domain_hint: str | None,
 ) -> SummaryChunk:
     prompt = _paper_batch_prompt(documents, skill_type, domain_hint)
-    response = provider.chat(_messages(prompt), temperature=temperature)
+    response = chat_for_json(provider, _messages(prompt), temperature=temperature)
     return _summary_from_response(response)
 
 
@@ -91,7 +93,7 @@ def _merge_summaries(
     domain_hint: str | None,
 ) -> SummaryChunk:
     prompt = _merge_prompt(summaries, skill_type, domain_hint)
-    response = provider.chat(_messages(prompt), temperature=temperature)
+    response = chat_for_json(provider, _messages(prompt), temperature=temperature)
     return _summary_from_response(response)
 
 
@@ -111,6 +113,10 @@ def _paper_batch_prompt(documents: list[ParsedDocument], skill_type: str, domain
         "section_expressions, concept_threads, writing_patterns, rewrite_rules, ai_taste_checklist, examples.\n"
         "concept_threads items must include: concept, aliases, problem_role, method_role, evidence_role, "
         "discussion_role, claim_strength, common_transitions, do_not_confuse_with, section_roles, writing_guidance.\n"
+        "rewrite_rules: extract domain-specific academic revision patterns observed across papers, e.g., "
+        "'replace vague novelty claims (novel, state-of-the-art) with specific technical distinctions', "
+        "'prefer metric-backed comparisons (outperforms X by Y bpm) over qualitative claims', "
+        "'replace passive voice with active when describing method design choices'.\n"
         "Do not copy full source sentences verbatim.\n\n"
         + "\n\n---\n\n".join(sections)
     )
@@ -124,9 +130,11 @@ def _merge_prompt(summaries: list[SummaryChunk], skill_type: str, domain_hint: s
         + "Merge equivalent expressions, combine similar concept threads, preserve section-level and paper-level guidance, "
         "and remove generic or duplicated items.\n"
         "Return compact JSON with keys: domain, purpose, terminology {preferred, avoid}, section_logic, "
-        "section_expressions, concept_threads, writing_patterns, rewrite_rules, ai_taste_checklist, examples. "
+        "section_expressions, concept_threads, writing_patterns, rewrite_rules, ai_taste_checklist, examples.\n"
         "Preserve problem_role, method_role, evidence_role, discussion_role, claim_strength, common_transitions, "
-        "and do_not_confuse_with in concept_threads.\n\n"
+        "and do_not_confuse_with in concept_threads.\n"
+        "For rewrite_rules: merge and deduplicate, keep only domain-specific academic revision rules "
+        "(e.g., 'use metric-backed comparisons', 'replace vague novelty claims with technical distinctions').\n\n"
         + json.dumps(payload, ensure_ascii=False, indent=2)
     )
 

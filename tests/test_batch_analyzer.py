@@ -11,7 +11,7 @@ class RecordingProvider(BaseLLMProvider):
     def __init__(self) -> None:
         self.prompts: list[str] = []
 
-    def chat(self, messages: list[dict[str, str]], temperature: float = 0.2) -> str:
+    def chat(self, messages: list[dict[str, str]], temperature: float = 0.2, json_mode: bool = False) -> str:
         prompt = messages[-1]["content"]
         self.prompts.append(prompt)
         if "Merge these intermediate corpus summaries" in prompt:

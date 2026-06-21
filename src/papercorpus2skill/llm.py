@@ -9,7 +9,12 @@ from typing import Protocol
 
 
 class BaseLLMProvider(Protocol):
-    def chat(self, messages: list[dict[str, str]], temperature: float = 0.2) -> str:
+    def chat(
+        self,
+        messages: list[dict[str, str]],
+        temperature: float = 0.2,
+        json_mode: bool = False,
+    ) -> str:
         ...
 
 
@@ -40,7 +45,12 @@ class OpenAICompatibleProvider:
         self.config = config
         self.base_url = (config.base_url or "https://api.openai.com/v1").rstrip("/")
 
-    def chat(self, messages: list[dict[str, str]], temperature: float = 0.2) -> str:
+    def chat(
+        self,
+        messages: list[dict[str, str]],
+        temperature: float = 0.2,
+        json_mode: bool = False,
+    ) -> str:
         api_key = self.config.resolved_api_key
         if not api_key:
             raise ProviderConfigurationError("OpenAI-compatible provider requires an API key.")
@@ -49,6 +59,8 @@ class OpenAICompatibleProvider:
             "messages": messages,
             "temperature": temperature,
         }
+        if json_mode:
+            payload["response_format"] = {"type": "json_object"}
         data = _post_json(
             f"{self.base_url}/chat/completions",
             payload,
@@ -62,7 +74,12 @@ class AnthropicProvider:
         self.config = config
         self.base_url = (config.base_url or "https://api.anthropic.com").rstrip("/")
 
-    def chat(self, messages: list[dict[str, str]], temperature: float = 0.2) -> str:
+    def chat(
+        self,
+        messages: list[dict[str, str]],
+        temperature: float = 0.2,
+        json_mode: bool = False,
+    ) -> str:
         api_key = self.config.resolved_api_key
         if not api_key:
             raise ProviderConfigurationError("Anthropic provider requires an API key.")
@@ -91,13 +108,20 @@ class OllamaProvider:
         self.config = config
         self.base_url = (config.base_url or "http://localhost:11434").rstrip("/")
 
-    def chat(self, messages: list[dict[str, str]], temperature: float = 0.2) -> str:
+    def chat(
+        self,
+        messages: list[dict[str, str]],
+        temperature: float = 0.2,
+        json_mode: bool = False,
+    ) -> str:
         payload = {
             "model": self.config.model,
             "messages": messages,
             "stream": False,
             "options": {"temperature": temperature},
         }
+        if json_mode:
+            payload["format"] = "json"
         data = _post_json(f"{self.base_url}/api/chat", payload, headers={})
         return data["message"]["content"]
 
