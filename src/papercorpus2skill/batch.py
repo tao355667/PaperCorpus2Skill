@@ -59,6 +59,7 @@ class BatchPaperCorpus2SkillAgent:
         papers_per_batch: int = 5,
         summaries_per_merge: int = 5,
         pdf_backend: str = "pymupdf",
+        skip_convert: bool = False,
     ) -> BatchResult:
         groups = discover_corpus_groups(input_root)
         if not groups:
@@ -68,7 +69,11 @@ class BatchPaperCorpus2SkillAgent:
 
         agent = PaperCorpus2SkillAgent(self.provider)
         items: list[BatchSkillPack] = []
-        for group in groups:
+        total = len(groups)
+        for group_index, group in enumerate(groups):
+            print(f"\n{'='*60}")
+            print(f"Processing group {group_index + 1}/{total}: {group.name} ({group.source_count} papers)")
+            print(f"{'='*60}")
             pack = agent.generate(
                 input_path=group.path,
                 output_dir=Path(output_dir) / group.name,
@@ -81,6 +86,7 @@ class BatchPaperCorpus2SkillAgent:
                 papers_per_batch=papers_per_batch,
                 summaries_per_merge=summaries_per_merge,
                 pdf_backend=pdf_backend,
+                skip_convert=skip_convert,
             )
             items.append(BatchSkillPack(group=group, pack=pack))
         return BatchResult(items=items)

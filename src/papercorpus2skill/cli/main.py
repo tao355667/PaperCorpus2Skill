@@ -10,6 +10,7 @@ from papercorpus2skill.config import AppConfig, load_config
 from papercorpus2skill.corpus import discover_sources
 from papercorpus2skill.env import load_dotenv
 from papercorpus2skill.llm import LLMConfig, ProviderConfigurationError, create_provider
+from papercorpus2skill.markdown_converter import _normalize_markdown, _pdf_to_markdown as convert_pdf_to_markdown
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -25,6 +26,11 @@ def main(argv: list[str] | None = None) -> int:
 
     batch_preview_parser = subparsers.add_parser("batch-preview", help="Preview one-corpus-per-subfolder batch input.")
     batch_preview_parser.add_argument("input_root")
+
+    convert_parser = subparsers.add_parser("convert", help="Convert PDFs to Markdown and save alongside the originals (no LLM analysis).")
+    convert_parser.add_argument("input_path", help="Path to a corpus folder (or batch root folder).")
+    convert_parser.add_argument("--batch", action="store_true", dest="batch_mode", help="Treat input_path as a batch root with subfolders.")
+    convert_parser.add_argument("--pdf-backend", default=None, dest="pdf_backend")
 
     doctor_parser = subparsers.add_parser("doctor", help="Check local environment.")
     doctor_parser.add_argument("--provider", default=None)
@@ -43,6 +49,7 @@ def main(argv: list[str] | None = None) -> int:
     generate_parser.add_argument("--temperature", type=float, default=0.2)
     generate_parser.add_argument("--zotero", action="store_true", help="Scan local Zotero storage recursively.")
     generate_parser.add_argument("--no-zip", action="store_true")
+    generate_parser.add_argument("--skip-convert", action="store_true", help="Skip PDF->Markdown conversion (use cached markdown).")
 
     batch_parser = subparsers.add_parser("batch", help="Generate one Skill Pack per top-level corpus folder.")
     batch_parser.add_argument("input_root")
@@ -56,6 +63,7 @@ def main(argv: list[str] | None = None) -> int:
     batch_parser.add_argument("--api-key-env", default=None)
     batch_parser.add_argument("--temperature", type=float, default=0.2)
     batch_parser.add_argument("--no-zip", action="store_true")
+    batch_parser.add_argument("--skip-convert", action="store_true", help="Skip PDF->Markdown conversion (use cached markdown).")
 
     args = parser.parse_args(argv)
     config = load_config(Path(args.config))
@@ -65,6 +73,8 @@ def main(argv: list[str] | None = None) -> int:
         return _batch_preview(Path(args.input_root))
     if args.command == "doctor":
         return _doctor(provider=args.provider, model=args.model)
+    if args.command == "convert":
+        return _convert(args, config)
     if args.command == "generate":
         return _generate(args, config)
     if args.command == "batch":
@@ -111,6 +121,57 @@ def _doctor(provider: str | None, model: str | None) -> int:
     return 0
 
 
+def _convert(args: argparse.Namespace, config: AppConfig) -> int:
+    pdf_backend = args.pdf_backend or config.processing.pdf_backend
+
+    def _convert_group(sources: list, group_path: Path, group_label: str) -> int:
+        md_dir = group_path / "markdown"
+        md_dir.mkdir(parents=True, exist_ok=True)
+        count = 0
+        for source in sources:
+            if source.kind != "pdf":
+                continue
+            md_path = md_dir / f"{source.path.stem}.md"
+            if md_path.exists():
+                print(f"  [skip] {source.path.name}  (already exists)")
+                continue
+            markdown = convert_pdf_to_markdown(source.path, pdf_backend)
+            markdown = _normalize_markdown(markdown)
+            md_path.write_text(markdown + "\n", encoding="utf-8")
+            print(f"  [done] {source.path.name}")
+            count += 1
+        return count
+
+    if args.batch_mode:
+        groups = discover_corpus_groups(Path(args.input_path))
+        if not groups:
+            print("No corpus groups found.", file=sys.stderr)
+            return 1
+        total = 0
+        for group in groups:
+            sources = discover_sources(group.path)
+            if not sources:
+                continue
+            pdf_sources = [s for s in sources if s.kind == "pdf"]
+            if not pdf_sources:
+                continue
+            print(f"\n[{group.name}] Converting {len(pdf_sources)} PDFs...")
+            total += _convert_group(pdf_sources, group.path, group.name)
+        print(f"\nDone. {total} files converted.")
+    else:
+        input_path = Path(args.input_path)
+        sources = discover_sources(input_path)
+        pdf_sources = [s for s in sources if s.kind == "pdf"]
+        if not pdf_sources:
+            print("No PDF files found.", file=sys.stderr)
+            return 1
+        print(f"Converting {len(pdf_sources)} PDFs...")
+        count = _convert_group(pdf_sources, input_path, input_path.name)
+        print(f"\nDone. {count} files converted.")
+
+    return 0
+
+
 def _generate(args: argparse.Namespace, config: AppConfig) -> int:
     try:
         target_tools = _target_tools(args.export, config)
@@ -127,6 +188,7 @@ def _generate(args: argparse.Namespace, config: AppConfig) -> int:
             papers_per_batch=config.processing.papers_per_batch,
             summaries_per_merge=config.processing.summaries_per_merge,
             pdf_backend=config.processing.pdf_backend,
+            skip_convert=args.skip_convert,
         )
     except (RuntimeError, FileNotFoundError, ProviderConfigurationError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
@@ -155,6 +217,7 @@ def _batch(args: argparse.Namespace, config: AppConfig) -> int:
             papers_per_batch=config.processing.papers_per_batch,
             summaries_per_merge=config.processing.summaries_per_merge,
             pdf_backend=config.processing.pdf_backend,
+            skip_convert=args.skip_convert,
         )
     except (RuntimeError, FileNotFoundError, ProviderConfigurationError) as exc:
         print(f"Error: {exc}", file=sys.stderr)

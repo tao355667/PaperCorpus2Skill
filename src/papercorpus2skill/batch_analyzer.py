@@ -25,12 +25,20 @@ def analyze_corpus_in_batches(
     summaries: list[SummaryChunk] = []
     cache = Path(cache_dir) if cache_dir else None
 
-    for batch_index, batch in enumerate(_chunks(documents, papers_per_batch)):
+    batches = _chunks(documents, papers_per_batch)
+    total_batches = len(batches)
+    for batch_index, batch in enumerate(batches):
         summary_path = cache / "summaries" / f"batch-{batch_index:03d}.json" if cache else None
+        if summary_path and summary_path.exists():
+            print(f"  Batch {batch_index + 1}/{total_batches} (cached, {len(batch)} papers)")
+        else:
+            print(f"  Batch {batch_index + 1}/{total_batches}: Summarizing {len(batch)} papers...", flush=True)
         summary = _load_or_create_summary(
             summary_path,
             lambda batch=batch: _summarize_papers(batch, provider, skill_type, temperature, domain_hint),
         )
+        if not (summary_path and summary_path.exists()):
+            print(f"    done.")
         state.apply_summary(summary)
         _save_working_state(cache, state)
         summaries.append(summary)
@@ -38,13 +46,19 @@ def analyze_corpus_in_batches(
     current = summaries
     round_index = 1
     while len(current) > 1:
+        groups = _chunks(current, summaries_per_merge)
+        print(f"  Merge round {round_index}: merging {len(current)} summaries into {len(groups)}...", flush=True)
         merged: list[SummaryChunk] = []
-        for group_index, group in enumerate(_chunks(current, summaries_per_merge)):
+        for group_index, group in enumerate(groups):
             summary_path = cache / "summaries" / f"merge-r{round_index:02d}-{group_index:03d}.json" if cache else None
+            if summary_path and summary_path.exists():
+                print(f"    Group {group_index + 1}/{len(groups)} (cached)")
             summary = _load_or_create_summary(
                 summary_path,
                 lambda group=group: _merge_summaries(group, provider, skill_type, temperature, domain_hint),
             )
+            if not (summary_path and summary_path.exists()):
+                print(f"    Group {group_index + 1}/{len(groups)} done.")
             state.apply_summary(summary)
             _save_working_state(cache, state)
             merged.append(summary)

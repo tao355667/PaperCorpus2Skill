@@ -5,12 +5,16 @@ from pathlib import Path
 from papercorpus2skill.batch_analyzer import analyze_corpus_in_batches
 from papercorpus2skill.corpus import discover_sources
 from papercorpus2skill.llm import BaseLLMProvider
-from papercorpus2skill.markdown_converter import MarkdownCacheConverter
+from papercorpus2skill.markdown_converter import MarkdownCacheConverter, MarkdownDocument, _title_from_markdown
 from papercorpus2skill.parsers import ParsedDocument
 from papercorpus2skill.skills import SkillPack, render_skill_pack
 
 
 class NoSupportedFilesError(RuntimeError):
+    pass
+
+
+class MarkdownCacheMissingError(RuntimeError):
     pass
 
 
@@ -31,6 +35,7 @@ class PaperCorpus2SkillAgent:
         papers_per_batch: int = 5,
         summaries_per_merge: int = 5,
         pdf_backend: str = "pymupdf",
+        skip_convert: bool = False,
     ) -> SkillPack:
         targets = target_tools or ["universal", "claude", "chatgpt", "codex", "cursor"]
         sources = discover_sources(input_path, include_zotero=include_zotero)
@@ -40,11 +45,23 @@ class PaperCorpus2SkillAgent:
         resolved_output_dir = Path(output_dir).expanduser().resolve()
         resolved_cache_root = Path(cache_dir).expanduser().resolve() if cache_dir else resolved_output_dir / ".cache"
         markdown_cache_dir = resolved_cache_root / "markdown"
-        markdown_docs = MarkdownCacheConverter(markdown_cache_dir, pdf_backend=pdf_backend).convert_many(sources)
+
+        label = f"[{domain_hint}]" if domain_hint else ""
+
+        if skip_convert:
+            print(f"\n{label} Phase 1/3: Reading Markdown from corpus ({len(sources)} papers)...")
+            markdown_docs = _load_markdowns_from_corpus(sources)
+        else:
+            print(f"\n{label} Phase 1/3: Converting {len(sources)} papers to Markdown...")
+            markdown_docs = MarkdownCacheConverter(markdown_cache_dir, pdf_backend=pdf_backend).convert_many(sources)
+
         documents = [
             ParsedDocument(source=document.source, title=document.title, text=document.markdown)
             for document in markdown_docs
         ]
+
+        total_batches = (len(documents) + papers_per_batch - 1) // papers_per_batch
+        print(f"{label} Phase 2/3: Analyzing corpus ({len(documents)} papers in {total_batches} batches)...")
         guidance = analyze_corpus_in_batches(
             documents,
             self.provider,
@@ -54,6 +71,7 @@ class PaperCorpus2SkillAgent:
             summaries_per_merge=summaries_per_merge,
             cache_dir=resolved_cache_root,
         )
+        print(f"{label} Phase 3/3: Rendering skill pack...")
         pack = render_skill_pack(
             guidance=guidance,
             output_dir=resolved_output_dir,
@@ -77,6 +95,32 @@ class PaperCorpus2SkillAgent:
         if create_zip:
             pack.zip()
         return pack
+
+
+def _load_markdowns_from_corpus(sources: list) -> list[MarkdownDocument]:
+    """Read .md files from the markdown/ subdirectory in the corpus folder."""
+    missing: list[str] = []
+    docs: list[MarkdownDocument] = []
+    for source in sources:
+        # Look in corpus/{group}/markdown/{stem}.md
+        md_path = source.path.parent / "markdown" / f"{source.path.stem}.md"
+        if md_path.exists():
+            markdown = md_path.read_text(encoding="utf-8")
+            docs.append(MarkdownDocument(
+                source=source,
+                title=_title_from_markdown(source.path, markdown),
+                markdown_path=md_path,
+                markdown=markdown,
+            ))
+            print(f"  {source.path.name}")
+        else:
+            missing.append(str(source.path.name))
+    if missing:
+        raise MarkdownCacheMissingError(
+            f"Markdown missing for {len(missing)} file(s). "
+            f"Run `papercorpus2skill convert` first:\n  " + "\n  ".join(missing)
+        )
+    return docs
 
 
 def _corpus_report(
