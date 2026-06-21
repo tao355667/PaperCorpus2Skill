@@ -43,7 +43,7 @@ def render_skill_pack(
     written.append(_write(files_dir / "section-logic.md", _section_logic(guidance)))
     written.append(_write(files_dir / "section-expressions.md", _section_expressions(guidance)))
     written.append(_write(files_dir / "concept-threads.md", _concept_threads(guidance)))
-    written.append(_write(files_dir / "paper-level-patterns.md", _concept_threads(guidance)))
+    written.append(_write(files_dir / "paper-level-patterns.md", _paper_level_patterns(guidance)))
     written.append(_write(files_dir / "writing-patterns.md", _list_doc("Writing Patterns", guidance.writing_patterns)))
     written.append(_write(files_dir / "rewrite-rules.md", _rewrite_rules(guidance)))
     written.append(_write(files_dir / "ai-taste-checklist.md", _list_doc("AI Taste Checklist", guidance.ai_taste_checklist)))
@@ -195,11 +195,15 @@ def _concept_threads(guidance: CorpusGuidance) -> str:
             if value:
                 lines.extend([f"{label}: {value}", ""])
         if thread.section_roles:
-            lines.extend(["Section roles:", ""])
-            for section, roles in thread.section_roles.items():
-                lines.extend([f"### {section.replace('_', ' ').title()}", ""])
-                lines.extend(_bullets(roles))
-                lines.append("")
+            non_empty_roles = {
+                section: roles for section, roles in thread.section_roles.items() if roles
+            }
+            if non_empty_roles:
+                lines.extend(["Section roles:", ""])
+                for section, roles in non_empty_roles.items():
+                    lines.extend([f"### {section.replace('_', ' ').title()}", ""])
+                    lines.extend(_bullets(roles))
+                    lines.append("")
         if thread.common_transitions:
             lines.extend(["Common transitions:", ""])
             lines.extend(_bullets(thread.common_transitions))
@@ -212,6 +216,18 @@ def _concept_threads(guidance: CorpusGuidance) -> str:
             lines.extend(["Writing guidance:", ""])
             lines.extend(_bullets(thread.writing_guidance))
             lines.append("")
+    return "\n".join(lines)
+
+
+def _paper_level_patterns(guidance: CorpusGuidance) -> str:
+    lines = ["# Paper-Level Patterns", "", "## Section Structure", ""]
+    for section, steps in guidance.section_logic.items():
+        lines.extend([f"### {section.replace('_', ' ').title()}", ""])
+        lines.extend(f"{index}. {step}" for index, step in enumerate(steps, start=1))
+        lines.append("")
+    lines.extend(["## Writing Patterns", ""])
+    lines.extend(_bullets(guidance.writing_patterns))
+    lines.append("")
     return "\n".join(lines)
 
 

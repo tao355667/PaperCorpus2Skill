@@ -19,7 +19,10 @@ class RecordingProvider(BaseLLMProvider):
                 {
                     "domain": "web development education",
                     "purpose": "Help write web development education papers.",
-                    "section_expressions": {"introduction": ["Recent studies increasingly emphasize platform primitives."]},
+                    "section_expressions": {
+                        "introduction": ["Recent studies increasingly emphasize platform primitives."],
+                        "method": ["We organize the instructional sequence around platform primitives."],
+                    },
                     "concept_threads": [
                         {
                             "concept": "progressive enhancement",

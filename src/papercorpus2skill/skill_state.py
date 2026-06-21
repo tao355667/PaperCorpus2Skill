@@ -94,16 +94,14 @@ class SkillState:
                     expressions.append(SectionExpression(text=text, count=1))
 
     def _merge_concept_threads(self, incoming: list[ConceptThread]) -> None:
-        index = {_norm(thread.concept): thread for thread in self.concept_threads}
         for thread in incoming:
             key = _norm(thread.concept)
             if not key:
                 continue
-            current = index.get(key)
+            current = self._find_matching_thread(key)
             if current is None:
                 current = ConceptThread(concept=thread.concept.strip(), aliases=[], section_roles={}, writing_guidance=[])
                 self.concept_threads.append(current)
-                index[key] = current
             _extend_unique(current.aliases, thread.aliases)
             _merge_section_lists(current.section_roles, thread.section_roles)
             _extend_unique(current.writing_guidance, thread.writing_guidance)
@@ -112,8 +110,24 @@ class SkillState:
             current.evidence_role = current.evidence_role or thread.evidence_role
             current.discussion_role = current.discussion_role or thread.discussion_role
             current.claim_strength = current.claim_strength or thread.claim_strength
-            _extend_unique(current.common_transitions, thread.common_transitions)
+            _extend_unique_transitions(current.common_transitions, thread.common_transitions)
             _extend_unique(current.do_not_confuse_with, thread.do_not_confuse_with)
+
+    def _find_matching_thread(self, key: str) -> ConceptThread | None:
+        """Find an existing concept thread matching ``key``.
+
+        A substring match is used (in addition to exact match) so that
+        ``computational efficiency`` and ``computational efficiency lightweight design``
+        are recognized as the same concept. The shorter key must be at least
+        5 characters to avoid false positives on very short tokens.
+        """
+        for thread in self.concept_threads:
+            existing = _norm(thread.concept)
+            if key == existing:
+                return thread
+            if len(key) >= 5 and (key in existing or existing in key):
+                return thread
+        return None
 
     def _merge_rewrite_rules(self, incoming: list[RewriteRule]) -> None:
         existing = {_norm(rule.name): rule for rule in self.rewrite_rules}
@@ -136,6 +150,25 @@ def _extend_unique(target: list[str], values: list[str]) -> None:
         if text and key not in seen:
             target.append(text)
             seen.add(key)
+
+
+def _extend_unique_transitions(target: list[str], values: list[str]) -> None:
+    """Deduplicate common_transitions, ignoring ``From X to Y:`` prefixes."""
+    seen = {_norm_transition(item) for item in target}
+    for value in values:
+        text = value.strip()
+        key = _norm_transition(text)
+        if text and key not in seen:
+            target.append(text)
+            seen.add(key)
+
+
+_TRANSITION_PREFIX_RE = re.compile(r"^\s*From\s+\w+\s+to\s+\w+\s*:\s*", re.IGNORECASE)
+
+
+def _norm_transition(value: str) -> str:
+    stripped = _TRANSITION_PREFIX_RE.sub("", value)
+    return _norm(stripped)
 
 
 def _merge_section_lists(target: dict[str, list[str]], incoming: dict[str, list[str]]) -> None:

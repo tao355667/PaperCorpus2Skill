@@ -61,12 +61,17 @@ def analyze_corpus_in_batches(
             )
             if not cached:
                 print(f"    Group {group_index + 1}/{len(groups)} done.")
-            state.apply_summary(summary)
-            _save_working_state(cache, state)
             merged.append(summary)
         current = merged
         round_index += 1
 
+    # Build final guidance from the merged result only. Applying merge output
+    # on top of the batch-accumulated state would duplicate entries (e.g.,
+    # "computational efficiency" from a batch and "computational efficiency /
+    # lightweight design" from the merge would both survive _norm dedup).
+    final = current[0] if current else SummaryChunk(domain=state.domain)
+    state = SkillState(domain=final.domain or state.domain)
+    state.apply_summary(final)
     if _same_label(state.domain, skill_type):
         state.domain = domain_hint or _infer_domain(documents)
     _save_working_state(cache, state)
@@ -113,10 +118,10 @@ def _paper_batch_prompt(documents: list[ParsedDocument], skill_type: str, domain
         "section_expressions, concept_threads, writing_patterns, rewrite_rules, ai_taste_checklist, examples.\n"
         "concept_threads items must include: concept, aliases, problem_role, method_role, evidence_role, "
         "discussion_role, claim_strength, common_transitions, do_not_confuse_with, section_roles, writing_guidance.\n"
-        "rewrite_rules: extract domain-specific academic revision patterns observed across papers, e.g., "
-        "'replace vague novelty claims (novel, state-of-the-art) with specific technical distinctions', "
-        "'prefer metric-backed comparisons (outperforms X by Y bpm) over qualitative claims', "
-        "'replace passive voice with active when describing method design choices'.\n"
+        "rewrite_rules (REQUIRED, at least 3 rules): each rule MUST be an object with keys "
+        '"name" (short label), "less_preferred" (list of vague phrases), "preferred" (list of precise replacements). '
+        "Example: {\"name\":\"Replace vague novelty\",\"less_preferred\":[\"novel\",\"state-of-the-art\"],"
+        "\"preferred\":[\"specific technical distinction\",\"metric-backed comparison\"]}.\n"
         "Do not copy full source sentences verbatim.\n\n"
         + "\n\n---\n\n".join(sections)
     )
@@ -127,14 +132,18 @@ def _merge_prompt(summaries: list[SummaryChunk], skill_type: str, domain_hint: s
     return (
         f"Merge these intermediate corpus summaries into a stronger {skill_type} skill state.\n"
         + (f"Corpus category: {domain_hint}\n" if domain_hint else "")
-        + "Merge equivalent expressions, combine similar concept threads, preserve section-level and paper-level guidance, "
-        "and remove generic or duplicated items.\n"
+        + "Merge equivalent expressions and combine similar concept threads. "
+        "Do NOT create new combined concept names using slashes (e.g., 'A / B'); pick the best single name or keep the original. "
+        "Remove duplicated expressions that differ only in placeholder tokens (e.g., keep 'Table X' version, drop bare 'Table' version). "
+        "Remove duplicated terminology where one entry is a substring of another (e.g., keep 'remote photoplethysmography (rPPG)', drop bare 'rPPG'). "
+        "Strip 'From X to Y:' prefixes from common_transitions and deduplicate the remaining sentences. "
+        "Preserve section-level and paper-level guidance.\n"
         "Return compact JSON with keys: domain, purpose, terminology {preferred, avoid}, section_logic, "
         "section_expressions, concept_threads, writing_patterns, rewrite_rules, ai_taste_checklist, examples.\n"
         "Preserve problem_role, method_role, evidence_role, discussion_role, claim_strength, common_transitions, "
         "and do_not_confuse_with in concept_threads.\n"
-        "For rewrite_rules: merge and deduplicate, keep only domain-specific academic revision rules "
-        "(e.g., 'use metric-backed comparisons', 'replace vague novelty claims with technical distinctions').\n\n"
+        "rewrite_rules: MUST be preserved and merged from the inputs. If the inputs contain rewrite_rules, "
+        "the merged output must contain at least as many. Deduplicate by name.\n\n"
         + json.dumps(payload, ensure_ascii=False, indent=2)
     )
 
